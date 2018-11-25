@@ -36,9 +36,9 @@ module Capybara
 
       def click
         scroll_into_view_if_needed!
-        mouse_driver.click(self)
-
-        maybe_block_until_network_request_finishes!
+        maybe_block_until_network_request_finishes! do
+          mouse_driver.click(self)
+        end
       end
 
       def set(value)
@@ -108,8 +108,10 @@ module Capybara
         javascript_bridge.evaluate_js(Capybara::Shimmer::JavascriptExpressions::INNER_TEXT)
       end
 
-      def maybe_block_until_network_request_finishes!
-        browser.wait_for("Network.requestWillBeSent", timeout: 0.1)
+      def maybe_block_until_network_request_finishes!(&block)
+        unless browser.anticipate_event("Network.requestWillBeSent", &block)
+          browser.wait_for("Network.requestWillBeSent", timeout: 0.1)
+        end
         browser.wait_for("Network.loadingFinished", timeout: 5)
       rescue Timeout::Error => _e
         logger.debug "No network event processed - continuing."

@@ -29,6 +29,7 @@ module Capybara
         @headless = headless
         @use_proxy = use_proxy
         @client = client
+        @anticipation = {}
       end
       # rubocop:enable Metrics/ParameterLists
 
@@ -45,7 +46,8 @@ module Capybara
       end
 
       def visit(path)
-        client.send_cmd "Page.navigate", url: path
+        result = client.send_cmd "Page.navigate", url: path
+        raise result.errorText if result.errorText
         client.wait_for do |event_name, event_params|
           (event_name == "Page.loadEventFired") ||
             (event_name == "Page.lifecycleEvent" &&
@@ -107,6 +109,15 @@ module Capybara
         client
           .send_cmd("DOM.getOuterHTML", **options)
           .outerHTML
+      end
+
+      def anticipate_event(evt, &block)
+        unless @anticipation.has_key?(evt)
+          on(evt) { |msg| puts "received #{evt}"; @anticipation[evt] = true }
+        end
+        @anticipation[evt] = false
+        yield
+        @anticipation[evt]
       end
 
       private
